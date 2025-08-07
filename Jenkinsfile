@@ -80,33 +80,61 @@ pipeline {
           string(credentialsId: 'kube-worker-tls-crt', variable: 'TLS_CRT'),
           string(credentialsId: 'kube-worker-tls-key', variable: 'TLS_KEY')
         ]) {
+          // sh '''
+          //   # Print lengths to help with debugging
+          //   echo "TLS_CRT length: ${#TLS_CRT}"
+          //   echo "TLS_KEY length: ${#TLS_KEY}"
+
+          //   # Fail if either credential is empty
+          //   if [ -z "$TLS_CRT" ] || [ -z "$TLS_KEY" ]; then
+          //     echo "❌ TLS certificate or key is empty. Please check Jenkins credentials."
+          //     exit 1
+          //   fi
+
+          //   # Save credentials to temporary files
+          //   echo "$TLS_CRT" > tls.crt
+          //   echo "$TLS_KEY" > tls.key
+
+          //   # Check that the cert and key are in expected PEM format
+          //   grep "BEGIN CERTIFICATE" tls.crt || { echo "❌ Invalid TLS cert format"; exit 1; }
+          //   grep "BEGIN PRIVATE KEY" tls.key || { echo "❌ Invalid TLS key format"; exit 1; }
+
+          //   # Create or update Kubernetes TLS secret
+          //   kubectl create secret tls $SECRET_NAME \
+          //     --cert=tls.crt \
+          //     --key=tls.key \
+          //     -n $NAMESPACE \
+          //     --dry-run=client -o yaml | kubectl apply -f -
+
+          //   # Clean up temp files
+          //   rm -f tls.crt tls.key
+          // '''
           sh '''
-            # Print lengths to help with debugging
             echo "TLS_CRT length: ${#TLS_CRT}"
             echo "TLS_KEY length: ${#TLS_KEY}"
 
-            # Fail if either credential is empty
             if [ -z "$TLS_CRT" ] || [ -z "$TLS_KEY" ]; then
               echo "❌ TLS certificate or key is empty. Please check Jenkins credentials."
               exit 1
             fi
 
-            # Save credentials to temporary files
-            echo "$TLS_CRT" > tls.crt
-            echo "$TLS_KEY" > tls.key
+            # Convert escaped newlines back to real newlines
+            echo "$TLS_CRT" | sed 's/\\\\n/\\n/g' | xargs -0 printf "%b" > tls.crt
+            echo "$TLS_KEY" | sed 's/\\\\n/\\n/g' | xargs -0 printf "%b" > tls.key
 
-            # Check that the cert and key are in expected PEM format
+            # Debug output (optional)
+            head -n 1 tls.crt
+            head -n 1 tls.key
+
             grep "BEGIN CERTIFICATE" tls.crt || { echo "❌ Invalid TLS cert format"; exit 1; }
             grep "BEGIN PRIVATE KEY" tls.key || { echo "❌ Invalid TLS key format"; exit 1; }
 
-            # Create or update Kubernetes TLS secret
             kubectl create secret tls $SECRET_NAME \
               --cert=tls.crt \
               --key=tls.key \
               -n $NAMESPACE \
               --dry-run=client -o yaml | kubectl apply -f -
 
-            # Clean up temp files
             rm -f tls.crt tls.key
           '''
         }
