@@ -175,66 +175,18 @@ pipeline {
     }
   }
 
-  post {
-    failure {
-      steps {
-        script {
-          // On failure, roll back to previous deployment image
-          withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
-            echo "Rolling back to previous image..."
-            sh """
-              PREV_IMAGE=\$(kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o=jsonpath='{.spec.template.spec.containers[0].image}')
-              kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=\$PREV_IMAGE
-              kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
-            """
-          }
-        }
-      }
-    }
-    success {
-      script {
-        echo "Deployment successful!"
-      }
-    }
-    always {
-      script {
-        echo "Cleaning up temporary files..."
-        // Add any cleanup steps if necessary
-      }
-    }
-  }
-
   // post {
   //   failure {
-  //     script {
-  //       withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
-  //         def deploymentExists = sh(
-  //           script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} --ignore-not-found",
-  //           returnStatus: true
-  //         ) == 0
-
-  //         if (deploymentExists) {
-  //           // Get container name dynamically
-  //           def containerName = sh(
-  //             script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o jsonpath='{.spec.template.spec.containers[0].name}'",
-  //             returnStdout: true
-  //           ).trim()
-
-  //           def prevImage = sh(
-  //             script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o jsonpath='{.spec.template.spec.containers[0].image}'",
-  //             returnStdout: true
-  //           ).trim()
-
-  //           if (containerName && prevImage) {
-  //             sh """
-  //               kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${containerName}=${prevImage}
-  //               kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
-  //             """
-  //           } else {
-  //             echo "Container name or previous image not found. Skipping rollback."
-  //           }
-  //         } else {
-  //           echo "Deployment ${IMAGE_NAME} not found in namespace ${NAMESPACE}. Skipping rollback."
+  //     steps {
+  //       script {
+  //         // On failure, roll back to previous deployment image
+  //         withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
+  //           echo "Rolling back to previous image..."
+  //           sh """
+  //             PREV_IMAGE=\$(kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o=jsonpath='{.spec.template.spec.containers[0].image}')
+  //             kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=\$PREV_IMAGE
+  //             kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
+  //           """
   //         }
   //       }
   //     }
@@ -251,4 +203,52 @@ pipeline {
   //     }
   //   }
   // }
+
+  post {
+    failure {
+      script {
+        withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
+          def deploymentExists = sh(
+            script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} --ignore-not-found",
+            returnStatus: true
+          ) == 0
+
+          if (deploymentExists) {
+            // Get container name dynamically
+            def containerName = sh(
+              script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o jsonpath='{.spec.template.spec.containers[0].name}'",
+              returnStdout: true
+            ).trim()
+
+            def prevImage = sh(
+              script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o jsonpath='{.spec.template.spec.containers[0].image}'",
+              returnStdout: true
+            ).trim()
+
+            if (containerName && prevImage) {
+              sh """
+                kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${containerName}=${prevImage}
+                kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
+              """
+            } else {
+              echo "Container name or previous image not found. Skipping rollback."
+            }
+          } else {
+            echo "Deployment ${IMAGE_NAME} not found in namespace ${NAMESPACE}. Skipping rollback."
+          }
+        }
+      }
+    }
+    success {
+      script {
+        echo "Deployment successful!"
+      }
+    }
+    always {
+      script {
+        echo "Cleaning up temporary files..."
+        // Add any cleanup steps if necessary
+      }
+    }
+  }
 }
