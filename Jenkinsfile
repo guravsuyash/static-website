@@ -115,8 +115,8 @@ pipeline {
           file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG'),
           usernamePassword(credentialsId: REGISTRY_CREDENTIAL_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')
         ]) {
-          sh """
-            echo "🛡️  Creating Docker registry secret in namespace: ${NAMESPACE}"
+          sh '''
+            echo "🛡️  Creating Kubernetes registry secret in namespace: ${NAMESPACE}"
 
             kubectl create secret docker-registry regcred \
               --docker-server="${REGISTRY}" \
@@ -125,7 +125,7 @@ pipeline {
               --docker-email="suyash@supporthives.com" \
               -n ${NAMESPACE} \
               --dry-run=client -o yaml | kubectl apply -f -
-          """
+          '''
         }
       }
     }
