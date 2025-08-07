@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-deployment
+  name: webapp
   namespace: webapps
 spec:
   replicas: 2
