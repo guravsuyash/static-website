@@ -35,6 +35,41 @@ pipeline {
       }
     }
 
+    stages {
+        stage('Create TLS Secret') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'kube-worker-tls-crt', variable: 'TLS_CRT'),
+                    string(credentialsId: 'kube-worker-tls-key', variable: 'TLS_KEY')
+                ]) {
+                    sh '''
+                        echo "$TLS_CRT" > tls.crt
+                        echo "$TLS_KEY" > tls.key
+
+                        kubectl create secret tls tls-secret \
+                            --cert=tls.crt \
+                            --key=tls.key \
+                            -n $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+                        rm tls.crt tls.key
+                    '''
+                }
+            }
+        }
+    }
+
+    stage('Install NGINX Ingress Controller') {
+        steps {
+            sh '''
+                # Create namespace if it doesn't exist
+                kubectl get namespace ingress-nginx || kubectl create namespace ingress-nginx
+
+                # Apply the ingress-nginx manifest
+                kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+            '''
+        }
+    }
+
     stage('Deploy to Kubernetes') {
       steps {
         script {
@@ -43,7 +78,7 @@ pipeline {
 
           withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
             sh """
-              kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+              kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
               kubectl apply -f k8s -n ${NAMESPACE}
               kubectl set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=${IMAGE_TAG} -n ${NAMESPACE}
               kubectl rollout status deployment/${IMAGE_NAME} -n ${NAMESPACE}
