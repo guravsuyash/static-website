@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp # Renamed from deployment to webapp
+  name: webapp
   namespace: webapps
 spec:
   replicas: 2
@@ -23,5 +23,5 @@ spec:
           image: registry.shuttlewhizz.com/webapp:latest
           ports:
             - containerPort: 80
-          imagePullSecrets:
-          - name: regcred # Ensure this secret exists in the namespace
+      imagePullSecrets:
+        - name: regcred
