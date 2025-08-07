@@ -77,8 +77,8 @@ pipeline {
       steps {
         // Load certificate and key from Jenkins credentials
         withCredentials([
-          string(credentialsId: 'tls-crt', variable: 'TLS_CRT'),
-          string(credentialsId: 'tls-key', variable: 'TLS_KEY')
+          string(credentialsId: 'kube-worker-tls-crt', variable: 'TLS_CRT'),
+          string(credentialsId: 'kube-worker-tls-key', variable: 'TLS_KEY')
         ]) {
           sh '''
             # Print lengths to help with debugging
