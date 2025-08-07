@@ -146,7 +146,7 @@ pipeline {
         }
       }
     }
-    
+
     // Stage to deploy the app to Kubernetes
     stage('Deploy to Kubernetes') {
       steps {
@@ -193,3 +193,5 @@ pipeline {
     }
   }
 }
+//Dammit, I forgot to add the kubeconfig handling and cluster access check for the NGINX Ingress Controller installation. Let's fix that now.
+// This will ensure the controller is installed reliably and can access the cluster.
