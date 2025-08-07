@@ -43,6 +43,7 @@ pipeline {
 
           withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
             sh """
+              kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
               kubectl apply -f k8s -n ${NAMESPACE}
               kubectl set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=${IMAGE_TAG} -n ${NAMESPACE}
               kubectl rollout status deployment/${IMAGE_NAME} -n ${NAMESPACE}
