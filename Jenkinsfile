@@ -115,18 +115,38 @@ pipeline {
     }
 
     // Stage to install NGINX Ingress Controller if not present
+    // stage('Install NGINX Ingress Controller') {
+    //   steps {
+    //     sh '''
+    //       # Check if ingress-nginx namespace exists, create if not
+    //       kubectl get namespace ingress-nginx || kubectl create namespace ingress-nginx
+
+    //       # Deploy ingress-nginx controller manifest
+    //       kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+    //     '''
+    //   }
+    // }
     stage('Install NGINX Ingress Controller') {
       steps {
-        sh '''
-          # Check if ingress-nginx namespace exists, create if not
-          kubectl get namespace ingress-nginx || kubectl create namespace ingress-nginx
+        withCredentials([
+          file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')
+        ]) {
+          sh '''
+            echo "🔧 Installing NGINX Ingress Controller..."
 
-          # Deploy ingress-nginx controller manifest
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
-        '''
+            # Check cluster access
+            kubectl cluster-info || { echo "❌ Unable to access cluster. Check kubeconfig."; exit 1; }
+
+            # Check if the ingress-nginx namespace exists, create if not
+            kubectl get namespace ingress-nginx || kubectl create namespace ingress-nginx
+
+            # Apply the ingress-nginx controller manifest
+            kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+          '''
+        }
       }
     }
-
+    
     // Stage to deploy the app to Kubernetes
     stage('Deploy to Kubernetes') {
       steps {
