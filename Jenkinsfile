@@ -2,26 +2,35 @@ pipeline {
   agent any
 
   environment {
+    // Docker registry URL
     REGISTRY = 'registry.shuttlewhizz.com'
+    // Docker image name
     IMAGE_NAME = 'webapp'
+    // Kubernetes namespace
     NAMESPACE = 'webapps'
+    // Jenkins credentials IDs
     KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-id'
     REGISTRY_CREDENTIAL_ID = 'Docker-credentials'
   }
 
   stages {
+    // Stage to checkout code from SCM
     stage('Checkout') {
       steps {
         checkout scm
       }
     }
 
+    // Stage to build Docker image and push to registry
     stage('Build & Push Docker Image') {
       steps {
         script {
+          // Get short git commit SHA for tagging
           def GIT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+          // Compose full image tag
           def IMAGE_TAG = "${REGISTRY}/${IMAGE_NAME}:${GIT_SHA}"
 
+          // Use Docker registry credentials to login, build, and push images
           withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIAL_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
             sh """
               echo \$DOCKER_PASS | docker login ${REGISTRY} -u \$DOCKER_USER --password-stdin
@@ -35,52 +44,65 @@ pipeline {
       }
     }
 
-    stages {
-        stage('Create TLS Secret') {
-            steps {
-                withCredentials([
-                    string(credentialsId: 'kube-worker-tls-crt', variable: 'TLS_CRT'),
-                    string(credentialsId: 'kube-worker-tls-key', variable: 'TLS_KEY')
-                ]) {
-                    sh '''
-                        echo "$TLS_CRT" > tls.crt
-                        echo "$TLS_KEY" > tls.key
+    // Stage to create TLS secret in Kubernetes
+    stage('Create TLS Secret') {
+      steps {
+        // Use credentials for TLS cert and key
+        withCredentials([
+          string(credentialsId: 'kube-worker-tls-crt', variable: 'TLS_CRT'),
+          string(credentialsId: 'kube-worker-tls-key', variable: 'TLS_KEY')
+        ]) {
+          sh '''
+            # Write TLS cert and key to files
+            echo "$TLS_CRT" > tls.crt
+            echo "$TLS_KEY" > tls.key
 
-                        kubectl create secret tls tls-secret \
-                            --cert=tls.crt \
-                            --key=tls.key \
-                            -n $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+            # Create or update the TLS secret in Kubernetes namespace
+            kubectl create secret tls tls-secret \
+              --cert=tls.crt \
+              --key=tls.key \
+              -n $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-                        rm tls.crt tls.key
-                    '''
-                }
-            }
+            # Clean up temporary files
+            rm tls.crt tls.key
+          '''
         }
+      }
     }
 
+    // Stage to install NGINX Ingress Controller if not present
     stage('Install NGINX Ingress Controller') {
-        steps {
-            sh '''
-                # Create namespace if it doesn't exist
-                kubectl get namespace ingress-nginx || kubectl create namespace ingress-nginx
+      steps {
+        sh '''
+          # Check if ingress-nginx namespace exists, create if not
+          kubectl get namespace ingress-nginx || kubectl create namespace ingress-nginx
 
-                # Apply the ingress-nginx manifest
-                kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
-            '''
-        }
+          # Deploy ingress-nginx controller manifest
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+        '''
+      }
     }
 
+    // Stage to deploy the app to Kubernetes
     stage('Deploy to Kubernetes') {
       steps {
         script {
           def GIT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
           def IMAGE_TAG = "${REGISTRY}/${IMAGE_NAME}:${GIT_SHA}"
 
+          // Use kubeconfig credential file for kubectl commands
           withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
             sh """
+              # Ensure namespace exists (create if needed)
               kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+              # Apply all k8s manifests from k8s directory
               kubectl apply -f k8s -n ${NAMESPACE}
+
+              # Update deployment image to the new image tag
               kubectl set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=${IMAGE_TAG} -n ${NAMESPACE}
+
+              # Wait for rollout to complete
               kubectl rollout status deployment/${IMAGE_NAME} -n ${NAMESPACE}
             """
           }
@@ -93,9 +115,7 @@ pipeline {
     failure {
       steps {
         script {
-          def GIT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-          def IMAGE_TAG = "${REGISTRY}/${IMAGE_NAME}:${GIT_SHA}"
-
+          // On failure, roll back to previous deployment image
           withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
             echo "Rolling back to previous image..."
             sh """
