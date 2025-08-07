@@ -175,23 +175,35 @@ pipeline {
     }
   }
 
+  // post {
+  //   failure {
+  //     steps {
+  //       script {
+  //         // On failure, roll back to previous deployment image
+  //         withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
+  //           echo "Rolling back to previous image..."
+  //           sh """
+  //             PREV_IMAGE=\$(kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o=jsonpath='{.spec.template.spec.containers[0].image}')
+  //             kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=\$PREV_IMAGE
+  //             kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
+  //           """
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
+
   post {
     failure {
-      steps {
-        script {
-          // On failure, roll back to previous deployment image
-          withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
-            echo "Rolling back to previous image..."
-            sh """
-              PREV_IMAGE=\$(kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o=jsonpath='{.spec.template.spec.containers[0].image}')
-              kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=\$PREV_IMAGE
-              kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
-            """
-          }
+      script {
+        withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
+          sh """
+            PREV_IMAGE=\$(kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o=jsonpath='{.spec.template.spec.containers[0].image}')
+            kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=\$PREV_IMAGE
+            kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
+          """
         }
       }
     }
   }
 }
-//Dammit, I forgot to add the kubeconfig handling and cluster access check for the NGINX Ingress Controller installation. Let's fix that now.
-// This will ensure the controller is installed reliably and can access the cluster.
