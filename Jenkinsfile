@@ -45,26 +45,69 @@ pipeline {
     }
 
     // Stage to create TLS secret in Kubernetes
-    stage('Create TLS Secret') {
+    // stage('Create TLS Secret') {
+    //   steps {
+    //     // Use credentials for TLS cert and key
+    //     withCredentials([
+    //       string(credentialsId: 'kube-worker-tls-crt', variable: 'TLS_CRT'),
+    //       string(credentialsId: 'kube-worker-tls-key', variable: 'TLS_KEY')
+    //     ]) {
+    //       sh '''
+    //         # Write TLS cert and key to files
+    //         echo "$TLS_CRT" > tls.crt
+    //         echo "$TLS_KEY" > tls.key
+
+    //         # Create or update the TLS secret in Kubernetes namespace
+    //         kubectl create secret tls tls-secret \
+    //           --cert=tls.crt \
+    //           --key=tls.key \
+    //           -n $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+    //         # Clean up temporary files
+    //         rm tls.crt tls.key
+    //       '''
+    //     }
+    //   }
+    // }
+
+    stage('Create TLS Secret from Jenkins Credentials') {
+      environment {
+        SECRET_NAME = 'tls-secret' // Name of the Kubernetes TLS secret
+      }
       steps {
-        // Use credentials for TLS cert and key
+        // Load certificate and key from Jenkins credentials
         withCredentials([
-          string(credentialsId: 'kube-worker-tls-crt', variable: 'TLS_CRT'),
-          string(credentialsId: 'kube-worker-tls-key', variable: 'TLS_KEY')
+          string(credentialsId: 'tls-crt', variable: 'TLS_CRT'),
+          string(credentialsId: 'tls-key', variable: 'TLS_KEY')
         ]) {
           sh '''
-            # Write TLS cert and key to files
+            # Print lengths to help with debugging
+            echo "TLS_CRT length: ${#TLS_CRT}"
+            echo "TLS_KEY length: ${#TLS_KEY}"
+
+            # Fail if either credential is empty
+            if [ -z "$TLS_CRT" ] || [ -z "$TLS_KEY" ]; then
+              echo "❌ TLS certificate or key is empty. Please check Jenkins credentials."
+              exit 1
+            fi
+
+            # Save credentials to temporary files
             echo "$TLS_CRT" > tls.crt
             echo "$TLS_KEY" > tls.key
 
-            # Create or update the TLS secret in Kubernetes namespace
-            kubectl create secret tls tls-secret \
+            # Check that the cert and key are in expected PEM format
+            grep "BEGIN CERTIFICATE" tls.crt || { echo "❌ Invalid TLS cert format"; exit 1; }
+            grep "BEGIN PRIVATE KEY" tls.key || { echo "❌ Invalid TLS key format"; exit 1; }
+
+            # Create or update Kubernetes TLS secret
+            kubectl create secret tls $SECRET_NAME \
               --cert=tls.crt \
               --key=tls.key \
-              -n $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+              -n $NAMESPACE \
+              --dry-run=client -o yaml | kubectl apply -f -
 
-            # Clean up temporary files
-            rm tls.crt tls.key
+            # Clean up temp files
+            rm -f tls.crt tls.key
           '''
         }
       }
