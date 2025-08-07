@@ -228,17 +228,16 @@ pipeline {
         }
       }
     }
-  }
-  success {
-    script {
-      echo "Deployment successful!"
+    success {
+      script {
+        echo "Deployment successful!"
+      }
     }
-  }
-
-  always {
-    script {
-      echo "Cleaning up temporary files..."
-      // Add any cleanup steps if necessary
+    always {
+      script {
+        echo "Cleaning up temporary files..."
+        // Add any cleanup steps if necessary
+      }
     }
   }
 }
