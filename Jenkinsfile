@@ -77,6 +77,7 @@ pipeline {
       steps {
         // Load certificate and key as temporary files using Jenkins secret file credentials
         withCredentials([
+          file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG'),
           file(credentialsId: 'kube-worker-ca', variable: 'TLS_CRT_FILE'),
           file(credentialsId: 'kube-worker-priv', variable: 'TLS_KEY_FILE')
         ]) {
