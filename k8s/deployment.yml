@@ -5,16 +5,23 @@ metadata:
   namespace: webapps
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
-      app: web
+      app: webapp
   template:
     metadata:
       labels:
-        app: web
+        app: webapp
     spec:
       containers:
-        - name: web
+        - name: webapp
           image: registry.shuttlewhizz.com/webapp:latest
           ports:
             - containerPort: 80
+          imagePullSecrets:
+          - name: regcred # Ensure this secret exists in the namespace
