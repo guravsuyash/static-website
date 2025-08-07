@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: web
-          image: registry.shuttlewhizz.com/web-app:latest
+          image: registry.shuttlewhizz.com/webapp:latest
           ports:
             - containerPort: 80
