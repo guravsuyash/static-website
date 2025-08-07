@@ -197,11 +197,28 @@ pipeline {
     failure {
       script {
         withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
-          sh """
-            PREV_IMAGE=\$(kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o=jsonpath='{.spec.template.spec.containers[0].image}')
-            kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=\$PREV_IMAGE
-            kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
-          """
+          def deploymentExists = sh(
+            script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} --ignore-not-found",
+            returnStatus: true
+          ) == 0
+
+          if (deploymentExists) {
+            def prevImage = sh(
+              script: "kubectl -n ${NAMESPACE} get deployment ${IMAGE_NAME} -o=jsonpath='{.spec.template.spec.containers[0].image}'",
+              returnStdout: true
+            ).trim()
+
+            if (prevImage) {
+              sh """
+                kubectl -n ${NAMESPACE} set image deployment/${IMAGE_NAME} ${IMAGE_NAME}=${prevImage}
+                kubectl -n ${NAMESPACE} rollout status deployment/${IMAGE_NAME}
+              """
+            } else {
+              echo "Previous image not found for deployment ${IMAGE_NAME}. Skipping rollback."
+            }
+          } else {
+            echo "Deployment ${IMAGE_NAME} not found in namespace ${NAMESPACE}. Skipping rollback."
+          }
         }
       }
     }
