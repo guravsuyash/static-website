@@ -86,7 +86,7 @@ pipeline {
 
             # Validate file content
             grep "BEGIN CERTIFICATE" "$TLS_CRT_FILE" || { echo "❌ Invalid TLS cert file format"; exit 1; }
-            grep "BEGIN PRIVATE KEY" "$TLS_KEY_FILE" || { echo "❌ Invalid TLS key file format"; exit 1; }
+            grep "BEGIN RSA PRIVATE KEY" "$TLS_KEY_FILE" || { echo "❌ Invalid TLS key file format"; exit 1; }
 
             # Create or update Kubernetes secret using the provided files
             kubectl create secret tls $SECRET_NAME \
