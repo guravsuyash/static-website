@@ -157,8 +157,8 @@ pipeline {
             mail(
                 to: 'suyash@supporthives.com',
                 subject: "✅ Build SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """\
-                The build for ${env.JOB_NAME} #${env.BUILD_NUMBER} was successful.
+                body: """The build for ${env.JOB_NAME} #${env.BUILD_NUMBER} was successful.
+
                 Check console output at ${env.BUILD_URL}
                 """
             )
