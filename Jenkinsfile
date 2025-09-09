@@ -3,8 +3,8 @@ pipeline {
 
   environment {
     REGISTRY = 'registry.shuttlewhizz.com'
-    IMAGE_NAME = 'webapp'
-    NAMESPACE = 'webapps'
+    IMAGE_NAME = 'webapp-staging'
+    NAMESPACE = 'webapps-staging'
     KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-id'
     REGISTRY_CREDENTIAL_ID = 'Docker-credentials'
   }
@@ -37,15 +37,16 @@ pipeline {
 
     stage('Create TLS Secret from Files') {
       environment {
-        SECRET_NAME = 'tls-secret'
+        SECRET_NAME = 'tls-secret-staging'
       }
       steps {
         withCredentials([
           file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG'),
-          file(credentialsId: 'kube-worker-ca', variable: 'TLS_CRT_FILE'),
-          file(credentialsId: 'kube-worker-priv', variable: 'TLS_KEY_FILE')
+          file(credentialsId: 'kube-staging-ca', variable: 'TLS_CRT_FILE'),
+          file(credentialsId: 'kube-staging-priv', variable: 'TLS_KEY_FILE')
         ]) {
           sh '''
+            kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
             openssl x509 -in "$TLS_CRT_FILE" -noout -text >/dev/null || { echo "Invalid TLS certificate"; exit 1; }
             openssl rsa -in "$TLS_KEY_FILE" -check >/dev/null 2>&1 || { echo "Invalid TLS private key"; exit 1; }
 

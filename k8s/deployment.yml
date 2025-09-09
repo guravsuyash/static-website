@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp
-  namespace: webapps
+  name: webapp-staging
+  namespace: webapps-staging
 spec:
   replicas: 2
   strategy:
@@ -12,15 +12,15 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: webapp
+      app: webapp-staging
   template:
     metadata:
       labels:
-        app: webapp
+        app: webapp-staging
     spec:
       containers:
-        - name: webapp
-          image: registry.shuttlewhizz.com/webapp:latest
+        - name: webapp-staging
+          image: registry.shuttlewhizz.com/webapp-staging:latest
           ports:
             - containerPort: 80
           readinessProbe:
