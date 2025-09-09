@@ -11,7 +11,7 @@ spec:
   tls:
     - hosts:
         - kube-staging.shuttlewhizz.com
-      secretName: tls-secret
+      secretName: tls-secret-staging
   rules:
     - host: kube-staging.shuttlewhizz.com
       http:
